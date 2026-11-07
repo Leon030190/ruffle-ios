@@ -1,7 +1,8 @@
 use std::cell::OnceCell;
 
+use block2::{Block, RcBlock};
 use objc2::rc::{Allocated, Retained};
-use objc2::runtime::{AnyObject, ProtocolObject};
+use objc2::runtime::{AnyClass, AnyObject, ProtocolObject};
 use objc2::{define_class, msg_send, AllocAnyThread, DefinedClass as _, Message};
 use objc2_core_data::{
     NSFetchedResultsChangeType, NSFetchedResultsController, NSFetchedResultsControllerDelegate,
@@ -164,7 +165,7 @@ define_class!(
         #[unsafe(method(showDocumentPicker:))]
         #[allow(deprecated)]
         fn _show_document_picker(&self, _sender: Option<&AnyObject>) {
-            self.show_document_picker();
+            self.show_add_menu();
         }
     }
 
@@ -403,6 +404,257 @@ impl LibraryController {
         let edit_controller = segue.sourceViewController();
         let edit_controller = edit_controller.downcast_ref::<EditController>().unwrap();
         dbg!(edit_controller); // TODO
+    }
+
+    /// Action Sheet menu offering multiple options to add Flash movies
+    pub fn show_add_menu(&self) {
+        let alert_cls = AnyClass::get(c"UIAlertController").expect("UIAlertController");
+        let action_cls = AnyClass::get(c"UIAlertAction").expect("UIAlertAction");
+
+        let alert: *mut AnyObject = unsafe {
+            msg_send![
+                alert_cls,
+                alertControllerWithTitle: ns_string!("Thêm Flash Movie / Game"),
+                message: ns_string!("Chọn phương thức thêm file SWF hoặc Ruffle bundle:"),
+                preferredStyle: 0isize // 0 = ActionSheet
+            ]
+        };
+
+        // Handle iPad popover anchor
+        unsafe {
+            let popover: *mut AnyObject = msg_send![alert, popoverPresentationController];
+            if !popover.is_null() {
+                if let Some(right_btn) = self.navigationItem().rightBarButtonItem() {
+                    let _: () = msg_send![popover, setBarButtonItem: &right_btn];
+                } else if let Some(view) = self.view() {
+                    let _: () = msg_send![popover, setSourceView: &view];
+                }
+            }
+        }
+
+        // 1. Browse Files / iCloud
+        let this = self.retain();
+        let files_block = RcBlock::new(move |_action: *mut AnyObject| {
+            this.show_document_picker();
+        });
+        let files_action: *mut AnyObject = unsafe {
+            msg_send![
+                action_cls,
+                actionWithTitle: ns_string!("📂 Mở từ Tệp / iCloud Drive..."),
+                style: 0isize,
+                handler: &*files_block
+            ]
+        };
+        unsafe { let _: () = msg_send![alert, addAction: files_action]; }
+
+        // 2. Download from Web URL
+        let this = self.retain();
+        let download_block = RcBlock::new(move |_action: *mut AnyObject| {
+            this.show_url_prompt(false);
+        });
+        let download_action: *mut AnyObject = unsafe {
+            msg_send![
+                action_cls,
+                actionWithTitle: ns_string!("🌐 Tải từ URL Web (Download SWF)..."),
+                style: 0isize,
+                handler: &*download_block
+            ]
+        };
+        unsafe { let _: () = msg_send![alert, addAction: download_action]; }
+
+        // 3. Direct Online Stream URL
+        let this = self.retain();
+        let stream_block = RcBlock::new(move |_action: *mut AnyObject| {
+            this.show_url_prompt(true);
+        });
+        let stream_action: *mut AnyObject = unsafe {
+            msg_send![
+                action_cls,
+                actionWithTitle: ns_string!("🔗 Thêm link Web trực tuyến (Stream)..."),
+                style: 0isize,
+                handler: &*stream_block
+            ]
+        };
+        unsafe { let _: () = msg_send![alert, addAction: stream_action]; }
+
+        // 4. Sample Flash Demos & Games
+        let this = self.retain();
+        let sample_block = RcBlock::new(move |_action: *mut AnyObject| {
+            this.show_sample_demos_menu();
+        });
+        let sample_action: *mut AnyObject = unsafe {
+            msg_send![
+                action_cls,
+                actionWithTitle: ns_string!("🎮 Thêm Game Flash mẫu (Sample Demos)..."),
+                style: 0isize,
+                handler: &*sample_block
+            ]
+        };
+        unsafe { let _: () = msg_send![alert, addAction: sample_action]; }
+
+        // Cancel
+        let cancel_block = RcBlock::new(|_action: *mut AnyObject| {});
+        let cancel_action: *mut AnyObject = unsafe {
+            msg_send![
+                action_cls,
+                actionWithTitle: ns_string!("Hủy"),
+                style: 1isize,
+                handler: &*cancel_block
+            ]
+        };
+        unsafe { let _: () = msg_send![alert, addAction: cancel_action]; }
+
+        unsafe {
+            let alert_vc: Retained<AnyObject> = Retained::retain(alert).unwrap();
+            let _: () = msg_send![self, presentViewController: &*alert_vc, animated: true, completion: None::<&Block<dyn Fn()>>];
+        }
+    }
+
+    /// Prompt user with a text input alert to enter/paste a web URL
+    fn show_url_prompt(&self, is_stream: bool) {
+        let alert_cls = AnyClass::get(c"UIAlertController").expect("UIAlertController");
+        let action_cls = AnyClass::get(c"UIAlertAction").expect("UIAlertAction");
+
+        let title = if is_stream {
+            ns_string!("Thêm Link Web Trực Tuyến")
+        } else {
+            ns_string!("Tải Flash SWF Từ Web")
+        };
+        let message = if is_stream {
+            ns_string!("Nhập link SWF trực tiếp (Ruffle sẽ stream trực tiếp qua mạng):")
+        } else {
+            ns_string!("Nhập link URL của file .swf để tải về máy:")
+        };
+
+        let alert: *mut AnyObject = unsafe {
+            msg_send![
+                alert_cls,
+                alertControllerWithTitle: title,
+                message: message,
+                preferredStyle: 1isize // 1 = Alert
+            ]
+        };
+
+        // Text field
+        let tf_block = RcBlock::new(|tf: *mut AnyObject| unsafe {
+            let _: () = msg_send![tf, setPlaceholder: ns_string!("https://example.com/game.swf")];
+            let _: () = msg_send![tf, setClearButtonMode: 1isize];
+        });
+        unsafe {
+            let _: () = msg_send![alert, addTextFieldWithConfigurationHandler: &*tf_block];
+        }
+
+        // Confirm
+        let alert_ptr = alert as usize;
+        let confirm_block = RcBlock::new(move |_action: *mut AnyObject| {
+            let alert_obj = alert_ptr as *mut AnyObject;
+            let text_fields: *mut AnyObject = unsafe { msg_send![alert_obj, textFields] };
+            if !text_fields.is_null() {
+                let first_tf: *mut AnyObject = unsafe { msg_send![text_fields, firstObject] };
+                if !first_tf.is_null() {
+                    let text: *mut NSString = unsafe { msg_send![first_tf, text] };
+                    if !text.is_null() {
+                        let text_str = unsafe { (*text).to_string() };
+                        let trimmed = text_str.trim();
+                        if !trimmed.is_empty() {
+                            if is_stream {
+                                let _ = crate::web_downloader::add_direct_stream_url(trimmed);
+                            } else {
+                                let _ = crate::web_downloader::download_swf_from_url(trimmed);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        let confirm_title = if is_stream { ns_string!("Thêm Stream") } else { ns_string!("Tải về") };
+        let confirm_action: *mut AnyObject = unsafe {
+            msg_send![
+                action_cls,
+                actionWithTitle: confirm_title,
+                style: 0isize,
+                handler: &*confirm_block
+            ]
+        };
+        unsafe { let _: () = msg_send![alert, addAction: confirm_action]; }
+
+        // Cancel
+        let cancel_block = RcBlock::new(|_action: *mut AnyObject| {});
+        let cancel_action: *mut AnyObject = unsafe {
+            msg_send![
+                action_cls,
+                actionWithTitle: ns_string!("Hủy"),
+                style: 1isize,
+                handler: &*cancel_block
+            ]
+        };
+        unsafe { let _: () = msg_send![alert, addAction: cancel_action]; }
+
+        unsafe {
+            let alert_vc: Retained<AnyObject> = Retained::retain(alert).unwrap();
+            let _: () = msg_send![self, presentViewController: &*alert_vc, animated: true, completion: None::<&Block<dyn Fn()>>];
+        }
+    }
+
+    /// Submenu for curated sample games and demos
+    fn show_sample_demos_menu(&self) {
+        let alert_cls = AnyClass::get(c"UIAlertController").expect("UIAlertController");
+        let action_cls = AnyClass::get(c"UIAlertAction").expect("UIAlertAction");
+
+        let alert: *mut AnyObject = unsafe {
+            msg_send![
+                alert_cls,
+                alertControllerWithTitle: ns_string!("Chọn Game / Demo Flash"),
+                message: ns_string!("Chọn tựa game hoặc demo mẫu để tự động tải về thư viện:"),
+                preferredStyle: 0isize // ActionSheet
+            ]
+        };
+
+        // Handle iPad popover anchor
+        unsafe {
+            let popover: *mut AnyObject = msg_send![alert, popoverPresentationController];
+            if !popover.is_null() {
+                if let Some(right_btn) = self.navigationItem().rightBarButtonItem() {
+                    let _: () = msg_send![popover, setBarButtonItem: &right_btn];
+                } else if let Some(view) = self.view() {
+                    let _: () = msg_send![popover, setSourceView: &view];
+                }
+            }
+        }
+
+        for (idx, (name, _url, desc)) in crate::web_downloader::SAMPLE_MOVIES.iter().enumerate() {
+            let title = NSString::from_str(&format!("{name} ({desc})"));
+            let sample_block = RcBlock::new(move |_action: *mut AnyObject| {
+                let _ = crate::web_downloader::add_sample_demo(idx);
+            });
+            let action: *mut AnyObject = unsafe {
+                msg_send![
+                    action_cls,
+                    actionWithTitle: &*title,
+                    style: 0isize,
+                    handler: &*sample_block
+                ]
+            };
+            unsafe { let _: () = msg_send![alert, addAction: action]; }
+        }
+
+        // Cancel
+        let cancel_block = RcBlock::new(|_action: *mut AnyObject| {});
+        let cancel_action: *mut AnyObject = unsafe {
+            msg_send![
+                action_cls,
+                actionWithTitle: ns_string!("Hủy"),
+                style: 1isize,
+                handler: &*cancel_block
+            ]
+        };
+        unsafe { let _: () = msg_send![alert, addAction: cancel_action]; }
+
+        unsafe {
+            let alert_vc: Retained<AnyObject> = Retained::retain(alert).unwrap();
+            let _: () = msg_send![self, presentViewController: &*alert_vc, animated: true, completion: None::<&Block<dyn Fn()>>];
+        }
     }
 
     #[allow(deprecated)]

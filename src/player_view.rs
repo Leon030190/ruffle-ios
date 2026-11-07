@@ -277,6 +277,25 @@ impl PlayerView {
             .expect("player lock")
     }
 
+    /// Dispatch synthetic key events directly into Ruffle (used by Virtual Gamepad & Controllers)
+    pub fn send_key(&self, physical_key: PhysicalKey, logical_key: LogicalKey, is_down: bool) {
+        let key = KeyDescriptor {
+            physical_key,
+            logical_key,
+            key_location: KeyLocation::Standard,
+        };
+        let event = if is_down {
+            PlayerEvent::KeyDown { key }
+        } else {
+            PlayerEvent::KeyUp { key }
+        };
+        if let Some(player) = self.ivars().player.get() {
+            if let Ok(mut player_lock) = player.lock() {
+                player_lock.handle_event(event);
+            }
+        }
+    }
+
     fn resize(&self) {
         tracing::info!("resizing to {:?}", self.frame().size);
         let new_dimensions = self.viewport_dimensions();

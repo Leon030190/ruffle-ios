@@ -1,0 +1,64 @@
+name: Build and Package iOS IPA
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Cho phép bấm nút "Run workflow" thủ công trên GitHub bất kỳ lúc nào
+
+jobs:
+  build-ipa:
+    runs-on: macos-14 # Chạy trên máy Mac của GitHub có sẵn Xcode mới nhất
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+          targets: aarch64-apple-ios, aarch64-apple-ios-sim
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer || true
+
+      - name: Build Xcode Project for iOS Device (arm64)
+        run: |
+          set -e
+          echo "Building Ruffle for iOS Device..."
+          xcodebuild build \
+            -project ruffle-ios.xcodeproj \
+            -scheme "ruffle-ios" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Package into .ipa (Application Archive)
+        run: |
+          set -e
+          APP_DIR=$(find build/Build/Products/Release-iphoneos -name "*.app" -type d | head -n 1)
+          if [ -z "$APP_DIR" ]; then
+            echo "Error: .app bundle not found!"
+            exit 1
+          fi
+          echo "Found app bundle at: $APP_DIR"
+          
+          mkdir -p Payload
+          cp -r "$APP_DIR" Payload/
+          
+          # Nén Payload thành file Ruffle.ipa
+          zip -r Ruffle.ipa Payload
+          echo "Successfully packaged Ruffle.ipa!"
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ruffle-iOS-IPA
+          path: Ruffle.ipa
+          if-no-files-found: error
+          retention-days: 30

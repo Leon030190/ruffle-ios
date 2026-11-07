@@ -8,11 +8,11 @@ use std::{fmt, io};
 
 use block2::RcBlock;
 use objc2::rc::{Allocated, Retained};
-use objc2::runtime::AnyObject;
-use objc2::{define_class, msg_send, DefinedClass as _, MainThreadOnly, Message};
+use objc2::runtime::{AnyClass, AnyObject};
+use objc2::{define_class, msg_send, sel, DefinedClass as _, MainThreadOnly, Message};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{
-    MainThreadMarker, NSBundle, NSCoder, NSObjectProtocol, NSRunLoop, NSString,
+    ns_string, MainThreadMarker, NSBundle, NSCoder, NSObjectProtocol, NSRunLoop, NSString,
 };
 use objc2_ui_kit::UIViewController;
 use ruffle_core::backend::navigator::OwnedFuture;
@@ -30,6 +30,7 @@ use url::Url;
 
 use crate::player_view::PlayerView;
 use crate::storage::{self, Movie, SecurityScopedResource};
+use crate::virtual_gamepad::VirtualGamepadView;
 
 #[derive(Clone, Debug)]
 pub struct FutureSpawner {
@@ -89,6 +90,7 @@ pub struct Ivars {
     _scoped_resource: Cell<Option<SecurityScopedResource>>,
 
     player: OnceCell<Arc<Mutex<Player>>>,
+    gamepad: OnceCell<Retained<VirtualGamepadView>>,
 }
 
 impl fmt::Debug for Ivars {
@@ -175,6 +177,13 @@ define_class!(
             self.view_did_disappear(animated);
             // Docs say to call super
             let _: () = unsafe { msg_send![super(self), viewDidDisappear: animated] };
+        }
+
+        #[unsafe(method(toggleGamepad:))]
+        fn _toggle_gamepad(&self, _sender: Option<&AnyObject>) {
+            if let Some(gamepad) = self.ivars().gamepad.get() {
+                gamepad.toggle_visibility();
+            }
         }
     }
 
@@ -357,6 +366,35 @@ impl PlayerController {
             .player
             .set(player)
             .unwrap_or_else(|_| panic!("viewDidLoad once"));
+
+        // Attach responsive Virtual Gamepad overlay
+        let mtm = self.mtm();
+        let gamepad = VirtualGamepadView::initWithPlayerView(mtm, &view);
+        // Autoresize mask: FlexibleWidth (2) | FlexibleHeight (16) = 18
+        unsafe {
+            let _: () = msg_send![&gamepad, setAutoresizingMask: 18usize];
+        }
+        view.addSubview(&gamepad);
+        self.ivars().gamepad.set(gamepad).ok();
+
+        // Add Toggle Gamepad button in navigation bar
+        let nav_item = self.navigationItem();
+        let toggle_button = unsafe {
+            let title = ns_string!("🎮 Controls");
+            let cls = AnyClass::get(c"UIBarButtonItem").unwrap();
+            let btn: *mut AnyObject = msg_send![cls, alloc];
+            let btn: Retained<AnyObject> = msg_send![
+                btn,
+                initWithTitle: title,
+                style: 0isize,
+                target: self,
+                action: sel!(toggleGamepad:)
+            ];
+            btn
+        };
+        unsafe {
+            let _: () = msg_send![&nav_item, setRightBarButtonItem: &toggle_button];
+        }
     }
 
     fn view_is_appearing(&self, _animated: bool) {

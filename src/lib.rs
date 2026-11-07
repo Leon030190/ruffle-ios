@@ -14,10 +14,13 @@ mod player_controller;
 mod player_view;
 mod scene_delegate;
 mod storage;
+pub mod virtual_gamepad;
+pub mod web_downloader;
 
 pub use self::app_delegate::AppDelegate;
 pub use self::player_controller::PlayerController;
 pub use self::player_view::PlayerView;
+pub use self::virtual_gamepad::VirtualGamepadView;
 
 /// Emit logging to either OSLog or stderr, depending on if using Mac
 /// Catalyst or native.
@@ -48,6 +51,7 @@ pub fn launch(app_class: Option<&AnyClass>, delegate_class: Option<&AnyClass>) {
     // and hence need to be initialized first.
     // See also [storyboard_connections.h]
     let _ = player_view::PlayerView::class();
+    let _ = virtual_gamepad::VirtualGamepadView::class();
     let _ = player_controller::PlayerController::class();
     let _ = library_controller::LibraryController::class();
     let _ = edit_controller::EditController::class();

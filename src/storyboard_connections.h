@@ -5,7 +5,11 @@
 @interface PlayerView: UIView
 @end
 
+@interface VirtualGamepadView: UIView
+@end
+
 @interface PlayerController: UIViewController
+- (IBAction) toggleGamepad: (id) sender;
 @end
 
 @interface LibraryController : UITableViewController
