@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-ipa:
-    runs-on: macos-13 # Runner macOS Intel được hỗ trợ 100% trên mọi tài khoản GitHub
+    runs-on: macos-latest # Luôn dùng runner macOS mới nhất được GitHub hỗ trợ
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
