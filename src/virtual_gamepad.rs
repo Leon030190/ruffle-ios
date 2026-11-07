@@ -12,7 +12,7 @@ use std::cell::{Cell, OnceCell};
 use std::f64::consts::PI;
 
 use objc2::rc::{Allocated, Retained};
-use objc2::runtime::{AnyClass, AnyObject};
+use objc2::runtime::{AnyClass, AnyObject, Bool};
 use objc2::{define_class, msg_send, sel, ClassType, DefinedClass as _, Message};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{MainThreadMarker, NSCoder, NSObjectProtocol, NSSet, NSString};
@@ -130,11 +130,11 @@ define_class!(
         }
 
         #[unsafe(method(pointInside:withEvent:))]
-        fn _point_inside_with_event(&self, point: CGPoint, _event: Option<&UIEvent>) -> objc2_foundation::Bool {
+        fn _point_inside_with_event(&self, point: CGPoint, _event: Option<&UIEvent>) -> Bool {
             if self.isHidden() {
-                return objc2_foundation::Bool::NO;
+                return Bool::NO;
             }
-            objc2_foundation::Bool::new(self.is_point_in_controls(point))
+            Bool::new(self.is_point_in_controls(point))
         }
 
         #[unsafe(method(touchesBegan:withEvent:))]
