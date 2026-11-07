@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-ipa:
-    runs-on: macos-14 # Chạy trên máy Mac của GitHub có sẵn Xcode mới nhất
+    runs-on: macos-13 # Runner macOS Intel được hỗ trợ 100% trên mọi tài khoản GitHub
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,8 +20,10 @@ jobs:
           toolchain: 1.81.0
           targets: aarch64-apple-ios, aarch64-apple-ios-sim
 
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer || true
+      - name: Show Xcode & System Info
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
 
       - name: Build Xcode Project for iOS Device (arm64)
         run: |
