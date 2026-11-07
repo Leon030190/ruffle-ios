@@ -229,6 +229,7 @@ impl PlayerController {
             // run_swf.rs doesn't need security scoping.
             _scoped_resource: Cell::new(None),
             player: OnceCell::new(),
+            gamepad: OnceCell::new(),
         });
         let nil = None::<&AnyObject>;
         unsafe { msg_send![super(this), initWithNibName: nil, bundle: nil] }
@@ -372,28 +373,25 @@ impl PlayerController {
         let gamepad = VirtualGamepadView::initWithPlayerView(mtm, &view);
         // Autoresize mask: FlexibleWidth (2) | FlexibleHeight (16) = 18
         unsafe {
-            let _: () = msg_send![&gamepad, setAutoresizingMask: 18usize];
+            let _: () = msg_send![&*gamepad, setAutoresizingMask: 18usize];
         }
         view.addSubview(&gamepad);
         self.ivars().gamepad.set(gamepad).ok();
 
         // Add Toggle Gamepad button in navigation bar
         let nav_item = self.navigationItem();
-        let toggle_button = unsafe {
+        unsafe {
             let title = ns_string!("🎮 Controls");
             let cls = AnyClass::get(c"UIBarButtonItem").unwrap();
             let btn: *mut AnyObject = msg_send![cls, alloc];
-            let btn: Retained<AnyObject> = msg_send![
+            let btn: *mut AnyObject = msg_send![
                 btn,
                 initWithTitle: title,
                 style: 0isize,
                 target: self,
                 action: sel!(toggleGamepad:)
             ];
-            btn
-        };
-        unsafe {
-            let _: () = msg_send![&nav_item, setRightBarButtonItem: &toggle_button];
+            let _: () = msg_send![&*nav_item, setRightBarButtonItem: btn];
         }
     }
 

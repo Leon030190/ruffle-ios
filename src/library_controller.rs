@@ -425,9 +425,9 @@ impl LibraryController {
             let popover: *mut AnyObject = msg_send![alert, popoverPresentationController];
             if !popover.is_null() {
                 if let Some(right_btn) = self.navigationItem().rightBarButtonItem() {
-                    let _: () = msg_send![popover, setBarButtonItem: &right_btn];
+                    let _: () = msg_send![popover, setBarButtonItem: &*right_btn];
                 } else if let Some(view) = self.view() {
-                    let _: () = msg_send![popover, setSourceView: &view];
+                    let _: () = msg_send![popover, setSourceView: &*view];
                 }
             }
         }
@@ -505,8 +505,7 @@ impl LibraryController {
         unsafe { let _: () = msg_send![alert, addAction: cancel_action]; }
 
         unsafe {
-            let alert_vc: Retained<AnyObject> = Retained::retain(alert).unwrap();
-            let _: () = msg_send![self, presentViewController: &*alert_vc, animated: true, completion: None::<&Block<dyn Fn()>>];
+            let _: () = msg_send![self, presentViewController: alert, animated: true, completion: None::<&Block<dyn Fn()>>];
         }
     }
 
@@ -592,8 +591,7 @@ impl LibraryController {
         unsafe { let _: () = msg_send![alert, addAction: cancel_action]; }
 
         unsafe {
-            let alert_vc: Retained<AnyObject> = Retained::retain(alert).unwrap();
-            let _: () = msg_send![self, presentViewController: &*alert_vc, animated: true, completion: None::<&Block<dyn Fn()>>];
+            let _: () = msg_send![self, presentViewController: alert, animated: true, completion: None::<&Block<dyn Fn()>>];
         }
     }
 
@@ -616,9 +614,9 @@ impl LibraryController {
             let popover: *mut AnyObject = msg_send![alert, popoverPresentationController];
             if !popover.is_null() {
                 if let Some(right_btn) = self.navigationItem().rightBarButtonItem() {
-                    let _: () = msg_send![popover, setBarButtonItem: &right_btn];
+                    let _: () = msg_send![popover, setBarButtonItem: &*right_btn];
                 } else if let Some(view) = self.view() {
-                    let _: () = msg_send![popover, setSourceView: &view];
+                    let _: () = msg_send![popover, setSourceView: &*view];
                 }
             }
         }
@@ -652,8 +650,7 @@ impl LibraryController {
         unsafe { let _: () = msg_send![alert, addAction: cancel_action]; }
 
         unsafe {
-            let alert_vc: Retained<AnyObject> = Retained::retain(alert).unwrap();
-            let _: () = msg_send![self, presentViewController: &*alert_vc, animated: true, completion: None::<&Block<dyn Fn()>>];
+            let _: () = msg_send![self, presentViewController: alert, animated: true, completion: None::<&Block<dyn Fn()>>];
         }
     }
 

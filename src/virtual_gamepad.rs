@@ -71,6 +71,12 @@ pub struct Ivars {
     btn_start_pressed: Cell<bool>,
 }
 
+impl std::fmt::Debug for Ivars {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Ivars").finish_non_exhaustive()
+    }
+}
+
 impl Default for Ivars {
     fn default() -> Self {
         Self {
@@ -124,11 +130,11 @@ define_class!(
         }
 
         #[unsafe(method(pointInside:withEvent:))]
-        fn _point_inside_with_event(&self, point: CGPoint, _event: Option<&UIEvent>) -> bool {
+        fn _point_inside_with_event(&self, point: CGPoint, _event: Option<&UIEvent>) -> objc2_foundation::Bool {
             if self.isHidden() {
-                return false;
+                return objc2_foundation::Bool::NO;
             }
-            self.is_point_in_controls(point)
+            objc2_foundation::Bool::new(self.is_point_in_controls(point))
         }
 
         #[unsafe(method(touchesBegan:withEvent:))]
@@ -296,7 +302,7 @@ impl VirtualGamepadView {
         let mut needs_redraw = false;
 
         for touch in touches {
-            let touch_ptr = Retained::as_ptr(touch) as usize;
+            let touch_ptr = Retained::as_ptr(&touch) as usize;
             let point = touch.locationInView(Some(self));
 
             match phase {

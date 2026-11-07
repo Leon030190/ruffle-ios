@@ -50,7 +50,7 @@ pub fn get_downloads_dir() -> PathBuf {
         )
     };
 
-    if let Some(first_url) = urls.first() {
+    if let Some(first_url) = urls.firstObject() {
         if let Some(path_str) = first_url.path() {
             let path = PathBuf::from(path_str.to_string());
             let downloads = path.join("Downloads");
@@ -139,6 +139,8 @@ pub fn add_stream_url(url_str: &str) -> Result<Retained<NSURL>, String> {
 
     Ok(ns_url)
 }
+
+pub use add_stream_url as add_direct_stream_url;
 
 /// Quick-add one of the curated sample games/demos
 pub fn add_sample_demo(index: usize) -> Result<Retained<NSURL>, String> {
